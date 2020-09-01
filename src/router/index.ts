@@ -1,18 +1,19 @@
-import AuthService from '@/store/auth/service';
+import AuthService from '@/store/auth/auth.service';
 import Vue from 'vue';
 import VueRouter, { RouteConfig } from 'vue-router';
+import { RoleGuard } from './role.guard';
 
 Vue.use(VueRouter);
 
 const routes: Array<RouteConfig> = [
   {
     path: '/',
-    redirect: '/home'
+    redirect: '/login'
   },
   {
     path: '/home',
     name: 'home',
-    component: () => import('../views/Home.vue'),
+    component: () => import('../modules/home/home.vue'),
     meta: {
       auth: true
     }
@@ -20,21 +21,29 @@ const routes: Array<RouteConfig> = [
   {
     path: '/admin',
     name: 'admin',
-    component: () => import('../views/Admin.vue'),
+    component: () => import('../modules/Admin.vue'),
     meta: {
       auth: true,
       roles: ['test']
-    }
+    },
+    beforeEnter: RoleGuard
   },
   {
     path: '/login',
     name: 'login',
-    component: () => import('../views/Login.vue')
+    component: () => import('../modules/login/login.vue'),
+    beforeEnter: (to, from, next) => {
+      if (AuthService.hasToken() && AuthService.isAuthenticated) {
+        next('/home');
+      } else {
+        next();
+      }
+    }
   },
   {
     path: '/denied',
     name: 'denied',
-    component: () => import('../views/Denied.vue')
+    component: () => import('../modules/Denied.vue')
   }
 ];
 
@@ -45,20 +54,22 @@ const router = new VueRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  if (to.meta?.auth && AuthService.hasToken()) {
-    if (AuthService.isAuthenticated()) {
-      if (to.meta?.roles) {
-        if (AuthService.hasRole(to.meta.roles)) {
+  if (to.meta?.auth) {
+    if (AuthService.firstCheck) {
+      next();
+    } else {
+      if (AuthService.hasToken()) {
+        if (AuthService.isAuthenticated()) {
           next();
         } else {
-          next('/denied');
+          AuthService.checkToken().subscribe((result: boolean) => {
+            if (result) {
+              next();
+            } else {
+              next('/login');
+            }
+          });
         }
-      } else {
-        next();
-      }
-    } else {
-      if (AuthService.firstCheck) {
-        next();
       } else {
         AuthService.firstCheck = true;
         next('/login');

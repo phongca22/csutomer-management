@@ -1,8 +1,7 @@
-import { of } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import store from '../index';
 import { some } from 'lodash';
-import { User } from './user';
+import { of } from 'rxjs';
+import { concatMap, map, tap } from 'rxjs/operators';
+import store from '../index';
 class AuthService {
   firstCheck: boolean;
 
@@ -14,7 +13,7 @@ class AuthService {
     return store.getters['auth/hasToken'];
   }
 
-  login({ user, pass }) {
+  login(user: string, pass: string) {
     const token = 'abc';
     localStorage.setItem('token', token);
     return this.getUserProfile().pipe(
@@ -45,6 +44,14 @@ class AuthService {
 
   getUser() {
     return store.getters['auth/user'];
+  }
+
+  checkToken() {
+    return of(true).pipe(
+      concatMap(() => this.getUserProfile()),
+      tap((data: any) => store.commit('auth/setUser', data)),
+      map(() => true)
+    );
   }
 }
 export default new AuthService();
